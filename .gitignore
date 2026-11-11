@@ -1,0 +1,15 @@
+node_modules/
+dist/
+.test-run-*/
+__pycache__/
+*.pyc
+*.sqlite*
+*.db
+*.key
+*.log
+*.zip
+.env*
+!.env.example
+outputs/
+test-results/
+playwright-report/

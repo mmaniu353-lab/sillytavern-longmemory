@@ -1,0 +1,14 @@
+{
+  "repository": "https://github.com/ChrystianSchutz/ThreadShelf",
+  "commit": "f13b721561305c3b040dc701ce86553ec36c4447",
+  "version": "1.4.1",
+  "license": "MIT",
+  "files": {
+    "parser.ts": "c4b014dc087ea0e663332eddce0030deee49c2b44c10ff176223d916ee5a1b73",
+    "chunking.ts": "b57a72f65799ea298b370df7153c33f04d25a17f0739b2936e5559c872b8769f",
+    "model-label.ts": "1bf466bbd77408fd18e89474c0c7a79272c4368a76e9da03338b83525605fd40",
+    "LICENSE": "4eb8cbfd054ecb09939a8c89a0c4fe55702bd2c3c3faad8854da7ea7679ff00a"
+  },
+  "modifications": "None in vendored source; adapters are separate.",
+  "hashEncoding": "UTF-8 with LF line endings"
+}

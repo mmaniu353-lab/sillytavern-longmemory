@@ -1,0 +1,3 @@
+* text=auto
+vendor/threadshelf/** -whitespace
+plugin/THREADSHELF-LICENSE.txt -whitespace

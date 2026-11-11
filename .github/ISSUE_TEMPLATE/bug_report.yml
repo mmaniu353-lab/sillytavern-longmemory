@@ -1,0 +1,54 @@
+name: Bug report
+description: Report a reproducible bug using synthetic, non-private data.
+title: '[Bug]: '
+body:
+  - type: markdown
+    attributes:
+      value: |
+        For vulnerabilities, follow SECURITY.md and use a private advisory if available.
+        Do not paste real chats, exports, character cards, databases, scope keys, cookies,
+        credentials, account screenshots, or private backups into a public issue.
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy and reproduction
+      options:
+        - label: This report and its attachments contain only invented, synthetic data and no private content or secrets.
+          required: true
+        - label: I am not using this public issue to disclose a vulnerability; I have checked SECURITY.md.
+          required: true
+  - type: input
+    id: revision
+    attributes:
+      label: LongMemory version or commit
+      description: Include whether you built from source; v0.3.0 remains unreleased until publication.
+      placeholder: Commit SHA and installation method
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Host version/commit, OS, Node, Python, browser, and whether frontend and backend payloads are both installed. Do not include account identifiers or tokens.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Minimal synthetic reproduction
+      description: Steps and a small invented input, preferably reproduced with a disposable state directory. Do not disable authentication or CSRF.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: observed
+    attributes:
+      label: Observed behavior
+      description: Include a sanitized error code or minimal synthetic output. Do not upload complete logs or screenshots before reviewing them for private content.
+    validations:
+      required: true

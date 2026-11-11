@@ -1,0 +1,13 @@
+{
+    "display_name": "长期记忆桥接",
+    "description": "当前角色卡旧会话自动回溯、新消息持久记忆与生成前召回。",
+    "loading_order": 999,
+    "requires": [],
+    "optional": [],
+    "js": "index.js",
+    "css": "style.css",
+    "generate_interceptor": "longMemoryGenerationInterceptor",
+    "author": "Local Integration",
+    "version": "0.3.0",
+    "auto_update": false
+}
