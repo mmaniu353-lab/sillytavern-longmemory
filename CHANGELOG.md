@@ -23,7 +23,7 @@
 - Pin MIT-licensed ThreadShelf source at `f13b721561305c3b040dc701ce86553ec36c4447`, retain attribution, and record selected-file hashes.
 - Add synthetic Node/Python tests, browser-shim checks, and an opt-in isolated host smoke test. CI configuration targets Ubuntu and Windows with Node 22/24 and Python 3.11.
 - Keep automatic features disabled by default. Retain host authentication and CSRF requirements; do not modify live host configuration or real user state during development.
-- Record a local isolated SillyTavern 1.18.0 smoke pass at commit `51ad27fb86d39a3daca3adaa970375c9670c12df`, including real CSRF rejection, full Unicode readback, library roundtrip, defaults, and synthetic-character UI search. Remote CI and cross-platform results are still pending.
+- Record a local isolated SillyTavern 1.18.0 smoke pass at commit `51ad27fb86d39a3daca3adaa970375c9670c12df`, including real CSRF rejection, full Unicode readback, library roundtrip, defaults, and synthetic-character UI search. The separate Ubuntu/Windows Node 22/24 CI matrix passed with synthetic browser tests.
 
 This release does not include semantic/vector search, MCP, PDF/OCR, remote synchronization, media downloading, or a general-purpose file crawler. See [compatibility](docs/COMPATIBILITY.md) for verification results and limits.
 

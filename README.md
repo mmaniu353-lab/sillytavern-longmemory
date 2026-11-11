@@ -2,7 +2,7 @@
 
 LongMemory stores SillyTavern chats and imported notes in SQLite, recalls matching excerpts before generation, and links results to their original messages. It can move stored messages out of the active prompt without replacing them with summaries. Imported documents live in a separate read-only knowledge library.
 
-**Release:** v0.3.0 is the first public release. v0.2 was a local baseline. Local verification passed; remote CI results are still pending. See [compatibility](docs/COMPATIBILITY.md) for the tested host and limits.
+**Release:** v0.3.0 is the first public release. v0.2 was a local baseline. Local verification and the Ubuntu/Windows Node 22/24 CI matrix passed. See [compatibility](docs/COMPATIBILITY.md) for the tested host and limits.
 
 ## What it does
 
@@ -27,7 +27,7 @@ Chat persistence accepts at most 1 MiB of UTF-8 text per message and 2,000 items
 ## Requirements
 
 - A SillyTavern installation that supports third-party browser extensions and server plugins. The tested host is listed in [compatibility](docs/COMPATIBILITY.md).
-- Node.js 22+ and Python 3.11+ with the standard-library `sqlite3` module. CI targets Node 22/24 and Python 3.11; this is not a claim that all combinations have passed.
+- Node.js 22+ and Python 3.11+ with the standard-library `sqlite3` module. CI passed on Ubuntu and Windows with Node 22/24 and Python 3.11. Other combinations remain unverified.
 - Permission to install and run server-side code on that SillyTavern instance. Browser-only hosting is insufficient.
 
 ## Build and install
@@ -91,7 +91,7 @@ npx playwright install chromium
 npm run test:browser
 ```
 
-On Linux CI, use `npx playwright install --with-deps chromium`. Browser tests use synthetic host shims, not a running SillyTavern instance. A separate local smoke test passed on the pinned SillyTavern 1.18.0 checkout with synthetic content and CSRF enabled. [Compatibility](docs/COMPATIBILITY.md) records its scope and limits. To rerun it, supply `ST_SOURCE` as described in [contributing](CONTRIBUTING.md). Benchmarks, cross-platform verification, and remote CI results are not available yet.
+On Linux CI, use `npx playwright install --with-deps chromium`. Browser tests use synthetic host shims, not a running SillyTavern instance. A separate local smoke test passed on the pinned SillyTavern 1.18.0 checkout with synthetic content and CSRF enabled. [Compatibility](docs/COMPATIBILITY.md) records its scope and limits. To rerun it, supply `ST_SOURCE` as described in [contributing](CONTRIBUTING.md). The Ubuntu/Windows Node 22/24 CI matrix also passed; these jobs use synthetic host shims, not actual SillyTavern deployments. No benchmark results are available.
 
 ## License and attribution
 

@@ -1,13 +1,13 @@
 # Compatibility
 
-These are the runtime targets, supported input formats, and verification limits for v0.3.0. Remote CI results are still pending.
+These are the runtime targets, supported input formats, and verification limits for v0.3.0. The [Ubuntu/Windows CI run](https://github.com/mmaniu353-lab/sillytavern-longmemory/actions/runs/43011937250) passed all four Node 22/24 jobs on commit `856c6e6ef49b011ef593710d32b169fc74ee8df0`. Each job ran the build, dependency audit, Node/Python tests, and synthetic Chromium checks.
 
 ## Runtime and host
 
 | Component | Target | Tested scope |
 |---|---|---|
-| Node.js | 22+ | Local Windows checks used 22.20.0; Ubuntu/Windows CI for 22/24 is pending |
-| Python | 3.11+, standard-library SQLite | Local Windows checks used 3.11.9; CI targets 3.11; later versions are unverified |
+| Node.js | 22+ | Local Windows checks used 22.20.0; Ubuntu/Windows CI for 22/24 passed |
+| Python | 3.11+, standard-library SQLite | Local Windows checks used 3.11.9; Ubuntu/Windows CI used 3.11; later versions are unverified |
 | Browser | Chromium through Playwright 1.65.0 | Separate synthetic host-shim and isolated actual-host UI checks passed locally |
 | SillyTavern | 1.18.0, commit `51ad27fb86d39a3daca3adaa970375c9670c12df` | Isolated Windows smoke passed with fresh synthetic data; other revisions and multi-user login deployments are unverified |
 
@@ -23,7 +23,7 @@ The local `outputs/host-smoke-result.json` reports `passed: true` for the pinned
 
 The run recorded no browser page errors or blocked external origins; the harness also checked that no model-provider requests occurred. This local output is excluded from release and CI payload uploads.
 
-The smoke used a fresh loopback-only host with `enableUserAccounts: false` and CSRF enabled. It checked default-user routes and sessions, not multi-user sign-in, every generation backend/model, every host setting, or every supported export shape. Ubuntu/Windows CI and Node 24 results remain pending.
+The smoke used a fresh loopback-only host with `enableUserAccounts: false` and CSRF enabled. It checked default-user routes and sessions, not multi-user sign-in, every generation backend/model, every host setting, or every supported export shape. The separate Ubuntu/Windows CI matrix passed on Node 22/24. It does not run this actual-host smoke test.
 
 Both payloads are required: the frontend has `manifest.json` and browser entry `index.js`; the backend has `package.json` and CommonJS entry `index.cjs`. Enable server plugins manually in the host configuration. Browser-only installations cannot persist through this backend.
 
