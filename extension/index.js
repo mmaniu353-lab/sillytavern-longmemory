@@ -23,7 +23,7 @@ let archiveTicket = 0;
 let archiveTimer;
 let libraryUI;
 
-// High-Performance Event-Driven State-Space Runtime (0% idle CPU)
+// State used by the memory overview, inspector, and transition log.
 const observabilityRuntime = {
     lastRecalledMatches: [],
     lastQuery: '',
@@ -51,7 +51,7 @@ const STATE_NAMES = {
     WINDOW: '当前聊天',
     VAULT: '记忆库',
     RECALLED: '本轮引用',
-    PINNED: '重点置顶',
+    PINNED: '置顶对话',
 };
 
 function recordTransition({ type, fromState, toState, source, floorIndex, role, charLen, detail }) {
@@ -518,7 +518,7 @@ globalThis.longMemoryGenerationInterceptor = async function (_chat, contextSize,
             }
         }
         for (const m of matches) {
-            const matchDesc = m.match === 'direct' ? '关键词直接匹配' : '顺藤摸瓜关联匹配';
+            const matchDesc = m.match === 'direct' ? '关键词匹配' : '关联匹配';
             recordTransition({
                 type: '自动找回',
                 fromState: 'VAULT',
@@ -527,7 +527,7 @@ globalThis.longMemoryGenerationInterceptor = async function (_chat, contextSize,
                 floorIndex: null,
                 role: m.role,
                 charLen: (m.text || '').length,
-                detail: `${matchDesc}（匹配度 ${m.score ?? 'N/A'}，命中词：[${(m.matched_terms || []).join('、')}]），本轮已自动带给 AI 参考`,
+                detail: `${matchDesc}（得分 ${m.score ?? 'N/A'}，命中词：${(m.matched_terms || []).join('、') || '无'}），已加入本轮提示词`,
             });
         }
 
@@ -554,37 +554,35 @@ globalThis.longMemoryGenerationInterceptor = async function (_chat, contextSize,
     }
 };
 
-// =========================================================================
-// 零卡顿事件驱动画布渲染引擎 (0% 闲置开销 + 离屏背景缓存 + 整洁网格排布)
-// =========================================================================
+// Memory overview canvas: cached background and event-driven redraws.
 const SUBSPACE_REGIONS = {
     WINDOW: {
-        title: '💬 当前聊天 (正在发送)',
-        subtitle: '留在当前窗口里、每轮直接发给 AI 的对话',
+        title: '当前聊天',
+        subtitle: '留在当前窗口中的对话',
         color: '#38bdf8',
         bg: 'rgba(56, 189, 248, 0.07)',
         rx: 0.255,
         ry: 0.265,
     },
     VAULT: {
-        title: '📦 放进记忆库 (已收起)',
-        subtitle: '不占当前字数 · 原文完整保存在本地库里',
+        title: '已收起',
+        subtitle: '原文已保存，可按需召回片段',
         color: '#818cf8',
         bg: 'rgba(129, 140, 248, 0.07)',
         rx: 0.745,
         ry: 0.265,
     },
     RECALLED: {
-        title: '🎯 本轮自动找回 (已引用)',
-        subtitle: '跟当前聊的内容相关、这一轮自动调出来的旧记忆',
+        title: '本轮引用',
+        subtitle: '检索到的相关记忆',
         color: '#10b981',
         bg: 'rgba(16, 185, 129, 0.08)',
         rx: 0.745,
         ry: 0.745,
     },
     PINNED: {
-        title: '📌 重点置顶 (常驻不收起)',
-        subtitle: '打上重点标记、清理空间时永远不会被自动收起',
+        title: '置顶对话',
+        subtitle: '不自动收起',
         color: '#f59e0b',
         bg: 'rgba(245, 158, 11, 0.08)',
         rx: 0.255,
@@ -604,7 +602,7 @@ function buildPartitionModel() {
     const nodes = [];
     const seenSources = new Set();
 
-    // 1. 当前聊天楼层 (内存直接秒读，0 I/O)
+    // 当前聊天的正文直接从内存读取。
     for (let i = 0; i < chat.length; i++) {
         const msg = chat[i];
         if (!msg || typeof msg.mes !== 'string' || !msg.mes.trim()) continue;
@@ -641,7 +639,7 @@ function buildPartitionModel() {
         });
     }
 
-    // 2. 补充本轮召回但不在当前聊天里的旧档记忆
+    // 补充本轮召回但不在当前聊天里的旧档记忆。
     let archiveIdx = 1;
     for (const m of observabilityRuntime.lastRecalledMatches) {
         if (seenSources.has(memoryNodeKey(m.chat, m.source))) continue;
@@ -664,7 +662,7 @@ function buildPartitionModel() {
         });
     }
 
-    // 3. 补充轻量级数据库快照里的代表节点（不传大正文，毫秒级）
+    // 数据库快照只提供节点摘要，正文在选中时读取。
     const snapNodes = observabilityRuntime.dbSnapshot?.nodes || [];
     for (const dbNode of snapNodes) {
         if (seenSources.has(memoryNodeKey(dbNode.chat, dbNode.source))) continue;
@@ -679,7 +677,7 @@ function buildPartitionModel() {
             role: dbNode.role,
             subspace: 'VAULT',
             charLen: dbNode.char_len || 0,
-            body: null, // 点击时再按需秒查全文
+            body: null,
             preview: dbNode.preview || '',
             revision: dbNode.revision || 1,
             matchInfo: null,
@@ -697,7 +695,7 @@ function layoutStateSpaceNodes() {
         (groups[node.subspace] || groups.VAULT).push(node);
     }
 
-    const MAX_PER_BOX = 24; // 6列 x 4行整洁网格，杜绝重叠与卡顿
+    const MAX_PER_BOX = 24; // 每区最多显示 6 列、4 行。
     const COLS = 6;
     const ROWS = 4;
     const rendered = [];
@@ -708,7 +706,7 @@ function layoutStateSpaceNodes() {
         const visibleList = subspace === 'WINDOW' ? list.slice(-MAX_PER_BOX) : list.slice(0, MAX_PER_BOX);
         observabilityRuntime.overflowCounts[subspace] = Math.max(0, list.length - visibleList.length);
 
-        // 安全内边距区域（严格避开顶部标题栏 46px 与底部边框）
+        // 为顶部标题和底部边框留出空间。
         const startX = reg.rx - 0.175;
         const spanX = 0.35;
         const startY = reg.ry - 0.085;
@@ -884,7 +882,7 @@ function drawStateSpaceCanvas() {
         }
     }
 
-    // 绘制顺藤摸瓜关联线
+    // 绘制关联匹配的来源连线。
     const nodesBySource = new Map(observabilityRuntime.renderedNodes.map(n => [n.source, n]));
     for (const node of observabilityRuntime.renderedNodes) {
         if (node.matchInfo?.via_source) {
@@ -900,7 +898,7 @@ function drawStateSpaceCanvas() {
         }
     }
 
-    // 绘制动画粒子（无 shadowBlur 卡顿）
+    // 绘制状态变化的移动标记。
     for (let i = observabilityRuntime.particles.length - 1; i >= 0; i--) {
         const p = observabilityRuntime.particles[i];
         p.t += 0.05;
@@ -916,7 +914,7 @@ function drawStateSpaceCanvas() {
         ctx.fill();
     }
 
-    // 绘制节点（纯矢量双环高亮，不用昂贵的 shadowBlur）
+    // 绘制节点及选中边框。
     ctx.textAlign = 'center';
     ctx.font = '10px monospace';
     for (const node of observabilityRuntime.renderedNodes) {
@@ -945,7 +943,7 @@ function drawStateSpaceCanvas() {
         ctx.fillText(node.label, x, y - node.radius - 4);
     }
 
-    // 只有存在运动粒子时才请求下一帧，静止时 0% CPU 占用
+    // 只有移动标记尚未结束时才请求下一帧。
     if (observabilityRuntime.particles.length > 0) {
         observabilityRuntime.rafId = requestAnimationFrame(drawStateSpaceCanvas);
     }
@@ -1012,7 +1010,7 @@ function renderTransitionLedger() {
     const container = document.getElementById('lm_tab_transitions');
     if (!container) return;
     if (!observabilityRuntime.transitions.length) {
-        container.innerHTML = `<div style="color:#94a3b8;font-size:12px;padding:12px;">还没有产生记忆流转记录。点上方「📥 收起旧对话到记忆库」或「🔍 试试自动找回旧记忆」就能看到变化过程。</div>`;
+        container.innerHTML = `<div class="lm-empty">暂无操作记录。收起、恢复或检索记忆后，记录会显示在这里。</div>`;
         return;
     }
     container.innerHTML = observabilityRuntime.transitions.slice(0, 30).map(item => {
@@ -1027,9 +1025,9 @@ function renderTransitionLedger() {
             <div class="lm-transition-item" style="border-left-color:${badgeColor}">
                 <div style="display:flex;justify-content:space-between;align-items:center;">
                     <strong style="color:${badgeColor};">[${item.type}] ${fromName} → ${toName}</strong>
-                    <span style="color:#64748b;font-family:monospace;font-size:11px;">${item.timestamp}</span>
+                    <span class="lm-muted" style="font-family:monospace;font-size:11px;">${item.timestamp}</span>
                 </div>
-                <div style="color:#cbd5e1;">
+                <div>
                     <span class="lm-node-pill">${floorLabel}</span>
                     <span class="lm-node-pill">${item.role === 'user' ? '你' : '角色'} · ${item.charLen} 字</span>
                     ${item.detail}
@@ -1045,37 +1043,37 @@ async function renderRawInspector() {
     const node = observabilityRuntime.renderedNodes.find(n => n.key === observabilityRuntime.selectedNodeKey)
         || observabilityRuntime.renderedNodes[0];
     if (!node) {
-        container.innerHTML = `<div style="color:#94a3b8;font-size:12px;padding:12px;">当前聊天或记忆库里还没有内容。</div>`;
+        container.innerHTML = `<div class="lm-empty">当前聊天和记忆库暂无内容</div>`;
         return;
     }
     const reg = SUBSPACE_REGIONS[node.subspace] || SUBSPACE_REGIONS.VAULT;
     const matchHtml = node.matchInfo
-        ? `<div style="padding:6px 10px;background:rgba(16,185,129,0.12);border:1px solid rgba(16,185,129,0.35);border-radius:6px;font-size:12px;color:#6ee7b7;">
-             🎯 <strong>这一轮被自动找回</strong>：${node.matchInfo.match === 'direct' ? '关键词直接命中' : '顺藤摸瓜关联命中'} · 匹配度 <code>${node.matchInfo.score ?? 'N/A'}</code>
+        ? `<div class="lm-match-note">
+             <strong>本轮引用</strong>：${node.matchInfo.match === 'direct' ? '关键词匹配' : '关联匹配'} · 得分 <code>${node.matchInfo.score ?? 'N/A'}</code>
            </div>`
         : '';
 
     const controlsHtml = node.floorIndex !== null
         ? `<div class="lm-btn-row">
-             <button class="lm-btn" data-lm-action="offload" data-floor="${node.floorIndex}">📥 收进记忆库 (省字数)</button>
-             <button class="lm-btn" data-lm-action="restore" data-floor="${node.floorIndex}">📤 放回当前聊天</button>
-             <button class="lm-btn" data-lm-action="pin" data-floor="${node.floorIndex}">📌 设为重点置顶 (不收起)</button>
+             <button class="lm-btn" data-lm-action="offload" data-floor="${node.floorIndex}">收起到记忆库</button>
+             <button class="lm-btn" data-lm-action="restore" data-floor="${node.floorIndex}">恢复到聊天</button>
+             <button class="lm-btn" data-lm-action="pin" data-floor="${node.floorIndex}">切换置顶</button>
            </div>`
-        : `<div style="font-size:11px;color:#94a3b8;">📦 这条内容来自以前的旧聊天存档，原文完整保存在本地记忆库中。</div>`;
+        : `<div class="lm-muted" style="font-size:12px;">来自旧聊天存档，原文保存在本地记忆库</div>`;
 
     container.innerHTML = `
         <div style="display:flex;flex-direction:column;gap:8px;">
             <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
-                <span style="font-weight:700;color:${reg.color};font-size:13px;">${reg.title}</span>
+                <span style="font-weight:600;color:${reg.color};font-size:13px;">${reg.title}</span>
                 <span class="lm-node-pill">${node.floorIndex !== null ? `第 #${node.floorIndex} 层` : `旧存档 (${node.label})`}</span>
             </div>
-            <div style="font-size:12px;color:#94a3b8;">
-                发言人：${node.role === 'user' ? '你' : '角色'} &nbsp;|&nbsp; 原文长度：<strong>${node.charLen} 字（完整无删减）</strong>
+            <div class="lm-muted" style="font-size:12px;">
+                发言人：${node.role === 'user' ? '你' : '角色'} &nbsp;|&nbsp; 原文长度：${node.charLen} 字
             </div>
             ${matchHtml}
-            <div id="lm_inspector_terms" style="font-size:12px;color:#cbd5e1;"></div>
+            <div id="lm_inspector_terms" style="font-size:12px;"></div>
             ${controlsHtml}
-            <div style="font-size:12px;font-weight:600;color:#e2e8f0;margin-top:4px;">📄 完整原始内容：</div>
+            <div style="font-size:12px;font-weight:600;margin-top:4px;">原文</div>
             <div class="lm-raw-box" id="lm_raw_body_box"></div>
         </div>
     `;
@@ -1091,7 +1089,7 @@ async function renderRawInspector() {
         }));
     });
 
-    // 若是当前楼层，直接秒显内存原文；若是旧存档且尚未拉取全文，先显预览再按需秒拉全文
+    // 当前楼层直接显示正文；旧存档先显示预览，再按需读取全文。
     if (node.body !== null && node.body !== undefined) {
         if (rawBox) rawBox.textContent = node.body || '（空）';
         if (termsBox) {
@@ -1166,41 +1164,40 @@ function mountObservabilityModal() {
         <div class="lm-modal-shell">
             <div class="lm-modal-header">
                 <div class="lm-modal-title">
-                    <span>🧠 本地记忆库与对话管理面板</span>
-                    <span class="lm-modal-tag">清理爆满空间 · 原文一字不丢</span>
+                    <span>记忆库管理</span>
                 </div>
                 <div class="lm-btn-row" style="margin:0;">
-                    <button id="lm_btn_offload_now" class="lm-btn lm-btn-primary" type="button">📥 收起旧对话到记忆库</button>
-                    <button id="lm_btn_sim_recall" class="lm-btn" type="button">🔍 试试自动找回旧记忆</button>
-                    <button id="lm_btn_restore_all" class="lm-btn" type="button">📤 恢复全部收起的对话</button>
-                    <button id="lm_btn_refresh_snap" class="lm-btn" type="button">🔄 刷新记忆库</button>
-                    <button id="lm_btn_close_modal" class="lm-btn" type="button">✕ 关闭</button>
+                    <button id="lm_btn_offload_now" class="lm-btn lm-btn-primary" type="button">收起旧对话</button>
+                    <button id="lm_btn_sim_recall" class="lm-btn" type="button">检索旧记忆</button>
+                    <button id="lm_btn_restore_all" class="lm-btn" type="button">恢复全部对话</button>
+                    <button id="lm_btn_refresh_snap" class="lm-btn" type="button">刷新</button>
+                    <button id="lm_btn_close_modal" class="lm-btn" type="button">关闭</button>
                 </div>
             </div>
             <div class="lm-telemetry-bar">
-                <div class="lm-stat-card" style="border-color:rgba(56,189,248,0.35);">
-                    <div class="lm-stat-label"><span>💬 当前聊天 (正在发送)</span><span style="color:#38bdf8;">● 占字数</span></div>
-                    <div class="lm-stat-val" id="lm_stat_omega1" style="color:#38bdf8;">0 层</div>
+                <div class="lm-stat-card">
+                    <div class="lm-stat-label">当前聊天</div>
+                    <div class="lm-stat-val" id="lm_stat_omega1">0 层</div>
                 </div>
-                <div class="lm-stat-card" style="border-color:rgba(129,140,248,0.35);">
-                    <div class="lm-stat-label"><span>📦 放进记忆库 (已收起)</span><span style="color:#818cf8;">● 不占字数</span></div>
-                    <div class="lm-stat-val" id="lm_stat_omega2" style="color:#818cf8;">0 条</div>
+                <div class="lm-stat-card">
+                    <div class="lm-stat-label">记忆库</div>
+                    <div class="lm-stat-val" id="lm_stat_omega2">0 条</div>
                 </div>
-                <div class="lm-stat-card" style="border-color:rgba(16,185,129,0.35);">
-                    <div class="lm-stat-label"><span>🎯 本轮自动找回 (已引用)</span><span style="color:#10b981;">● 按需调出</span></div>
-                    <div class="lm-stat-val" id="lm_stat_omega3" style="color:#10b981;">0 条</div>
+                <div class="lm-stat-card">
+                    <div class="lm-stat-label">本轮引用</div>
+                    <div class="lm-stat-val" id="lm_stat_omega3">0 条</div>
                 </div>
-                <div class="lm-stat-card" style="border-color:rgba(245,158,11,0.35);">
-                    <div class="lm-stat-label"><span>📌 重点置顶 (常驻不收起)</span><span style="color:#f59e0b;">● 始终保留</span></div>
-                    <div class="lm-stat-val" id="lm_stat_omega4" style="color:#f59e0b;">0 条</div>
+                <div class="lm-stat-card">
+                    <div class="lm-stat-label">置顶对话</div>
+                    <div class="lm-stat-val" id="lm_stat_omega4">0 条</div>
                 </div>
                 <div style="display:flex;flex-direction:column;gap:4px;font-size:12px;">
                     <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
-                        <input id="lm_modal_auto_offload" type="checkbox" /> 聊多时自动收起早期对话
+                        <input id="lm_modal_auto_offload" type="checkbox" /> 自动收起早期对话
                     </label>
                     <div style="display:flex;align-items:center;gap:6px;">
-                        <span>窗口里最多留几层:</span>
-                        <input id="lm_modal_keep_floors" type="number" min="4" max="200" style="width:58px;background:#0f172a;color:#f8fafc;border:1px solid #334155;border-radius:4px;padding:2px 6px;" />
+                        <span>保留楼层数</span>
+                        <input id="lm_modal_keep_floors" type="number" min="4" max="200" />
                     </div>
                 </div>
             </div>
@@ -1208,14 +1205,14 @@ function mountObservabilityModal() {
                 <div class="lm-diagram-pane">
                     <canvas id="lm_state_space_canvas"></canvas>
                     <div class="lm-diagram-footer">
-                        <span>💡 点图里的任意小圆点，就能在右边看它的<strong>完整原文</strong>，或者手动把它收进记忆库 / 放回聊天</span>
-                        <span>按需渲染 · 静止时 0% 性能占用</span>
+                        <span>选择节点查看原文，或调整收起、恢复和置顶状态</span>
+                        <span>每区最多显示 24 个节点</span>
                     </div>
                 </div>
                 <div class="lm-inspector-pane">
                     <div class="lm-tabs">
-                        <div class="lm-tab lm-active" data-lm-tab="inspector">📄 查看完整原文</div>
-                        <div class="lm-tab" data-lm-tab="transitions">🔄 记忆流转记录</div>
+                        <div class="lm-tab lm-active" data-lm-tab="inspector">原文</div>
+                        <div class="lm-tab" data-lm-tab="transitions">操作记录</div>
                     </div>
                     <div class="lm-tab-content lm-active" id="lm_tab_inspector"></div>
                     <div class="lm-tab-content" id="lm_tab_transitions"></div>
@@ -1325,22 +1322,22 @@ function initialize() {
         const panel = document.createElement('section');
         panel.id = 'long_memory_settings';
         panel.innerHTML = `
-            <h4><span>本地记忆库管理</span><span style="font-size:11px;color:#38bdf8;">清理爆满 · 不丢原文</span></h4>
-            <label><input id="long_memory_enabled" type="checkbox"> 启用记忆库与聊前自动找回旧记忆</label>
-            <label><input id="long_memory_auto_import" type="checkbox"> 自动把当前角色卡以前的旧聊天也存进记忆库</label>
-            <label><input id="long_memory_auto_offload" type="checkbox"> 对话太多时，自动把前面的旧楼层收进记忆库（省下字数）</label>
-            <label for="long_memory_keep_floors">当前聊天窗口里最多留几层（超出的早期楼层自动收进记忆库）</label>
+            <h4>本地记忆库</h4>
+            <label><input id="long_memory_enabled" type="checkbox"> 启用记忆库和生成前检索</label>
+            <label><input id="long_memory_auto_import" type="checkbox"> 自动导入当前角色卡的旧聊天</label>
+            <label><input id="long_memory_auto_offload" type="checkbox"> 自动收起超过保留数量的早期对话</label>
+            <label for="long_memory_keep_floors">保留楼层数（置顶对话不自动收起）</label>
             <input id="long_memory_keep_floors" type="number" min="4" max="200" value="24">
-            <label for="long_memory_world">共享记忆分组名（留空则同一个角色卡共用一个记忆库）</label>
+            <label for="long_memory_world">记忆分组（留空则按角色卡共享）</label>
             <input id="long_memory_world" type="text" maxlength="4089" placeholder="可选：分组名称">
             <div id="long_memory_status" role="status">正在连接本机记忆库…</div>
             <div id="long_memory_archive_status" role="status">等待检查旧聊天记录…</div>
             <div class="lm-btn-row">
-                <button id="long_memory_open_console" class="lm-btn lm-btn-primary" type="button">🧠 打开记忆库可视化面板</button>
-                <button id="long_memory_offload_btn" class="lm-btn" type="button">📥 立即收起旧对话到记忆库</button>
-                <button id="long_memory_restore_btn" class="lm-btn" type="button">📤 恢复全部收起的对话</button>
-                <button id="long_memory_rescan" class="lm-btn" type="button">🔄 重新扫描旧聊天</button>
-                <button id="long_memory_bypass" class="lm-btn" type="button">仅下一句不带记忆</button>
+                <button id="long_memory_open_console" class="lm-btn lm-btn-primary" type="button">打开管理面板</button>
+                <button id="long_memory_offload_btn" class="lm-btn" type="button">收起旧对话</button>
+                <button id="long_memory_restore_btn" class="lm-btn" type="button">恢复全部对话</button>
+                <button id="long_memory_rescan" class="lm-btn" type="button">重新扫描旧聊天</button>
+                <button id="long_memory_bypass" class="lm-btn" type="button">下一轮不带记忆</button>
             </div>
             <small>记忆原文保存在本机；启用召回后，相关原文会随提示词发送给当前选择的模型及其服务商。只有确认完整保存后才会收起对话，保存失败时原文保持可见。</small>`;
         container.append(panel);

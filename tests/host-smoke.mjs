@@ -34,7 +34,7 @@ await mkdir(evidence, {recursive:true});
 let child, browser, successful = false, serverLog = '', browserErrors = [], externalRequests = [], providerRequests = [];
 const digest = value => createHash('sha256').update(value).digest('hex');
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
-const results = {hostVersion:'1.18.0', hostCommit:expected, checks:[], screenshot:null};
+const results = {hostVersion:'1.18.0', hostCommit:expected, checks:[], screenshot:null, modalScreenshot:null};
 const pass = name => {results.checks.push(name); console.log('PASS ' + name);};
 try {
     await execFile('git', ['-C', source, 'archive', '--format=zip', '--output=' + archive, 'HEAD'], {windowsHide:true});
@@ -161,6 +161,20 @@ try {
     await page.locator('#long_memory_library').scrollIntoViewIfNeeded();await page.screenshot({path:screenshot,fullPage:true});
     results.screenshot=screenshot;results.browserPageErrors=browserErrors;results.blockedExternalOrigins=[...new Set(externalRequests)];
     pass('real synthetic character context searches imported knowledge in installed UI without model calls');
+    await page.locator('#lm_observability_pill').click();
+    const modal=page.locator('#lm_observability_modal');
+    await modal.waitFor({state:'visible'});
+    await page.waitForFunction(()=>document.querySelector('#lm_state_space_canvas')?.width>0&&document.querySelector('#lm_raw_body_box')?.textContent.length>0);
+    assert.equal(await modal.locator('#lm_btn_close_modal').isVisible(),true);
+    assert.match(await modal.locator('#lm_raw_body_box').innerText(),/Synthetic/);
+    assert.equal(await modal.evaluate(el=>el.scrollWidth<=el.clientWidth),true,'Console must not overflow the viewport horizontally');
+    const modalScreenshot=path.join(path.dirname(screenshot),path.basename(screenshot,'.png')+'-modal.png');
+    await page.screenshot({path:modalScreenshot,fullPage:true});
+    results.modalScreenshot=modalScreenshot;
+    await modal.locator('#lm_btn_close_modal').click();
+    assert.equal(await modal.isVisible(),false);
+    assert.equal(providerRequests.length,0,'Console smoke must not issue provider requests');
+    pass('real memory console opens with readable synthetic original and closes without model calls');
     successful=true;
 } catch(error) {
     results.failure=error.message;results.browserPageErrors=browserErrors;

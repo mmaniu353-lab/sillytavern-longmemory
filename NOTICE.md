@@ -7,3 +7,5 @@ Selected ThreadShelf modules are MIT licensed, copyright 2026 Chrystian Schutz. 
 SillyTavern is a separate host application under its own AGPL terms. This repository does not distribute the host, user data, models or character cards. Development dependencies retain their own licenses in their packages/lockfile; they are not shipped as runtime dependencies in the extension/backend payload.
 
 No ThreadShelf model service, LanceDB store, React application or MCP implementation is bundled. No affiliation with or endorsement by SillyTavern, ThreadShelf or OpenAI is implied.
+
+The v0.3.0 interface review used design guidance from [unslop](https://github.com/heydamir/unslop) by Damir Sokolovsky (@heydamir), licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). LongMemory's changes replace decorative gradients, glows and emoji labels with host-theme panels and plain action labels. The unslop skill is not bundled as runtime code, and its author does not endorse this project.
