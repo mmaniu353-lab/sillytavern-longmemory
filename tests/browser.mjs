@@ -21,6 +21,24 @@ try{
  await step('selected citations require opt-in and do not leak after chat switch',async()=>{assert.equal(await page.evaluate(()=>window.promptForTest()),'');await page.getByRole('button',{name:'选入提示词',exact:true}).click();await page.locator('[data-k=inject]').check();assert.match(await page.evaluate(()=>window.promptForTest()),/lighthouse/);await page.evaluate(()=>window.scope={world:'other',chat:'different'});assert.equal(await page.evaluate(()=>window.promptForTest()),'');await page.evaluate(()=>window.scope={world:'character:synthetic',chat:'synthetic-chat'});});
  await step('downloaded archive hashes and real restore are checked; altered snapshot rejected',async()=>{const download=page.waitForEvent('download');await page.locator('[data-k=export]').click();const dl=await download;const path=join(dir,'backup.json');await dl.saveAs(path);const pack=JSON.parse(await readFile(path,'utf8'));assert.equal(pack.schema,'longmemory.archive.v1');const body={world:'character:synthetic',chat:'synthetic-chat',collection:'restored',archive:pack};const headers={'content-type':'application/json','x-synthetic':'1'};const restored=await fetch(base+'/api/plugins/long-memory-bridge/library/restore',{method:'POST',headers,body:JSON.stringify(body)});assert.equal(restored.status,200);pack.snapshot.documents[0].raw+='tamper';const bad=await fetch(base+'/api/plugins/long-memory-bridge/library/restore',{method:'POST',headers,body:JSON.stringify(body)});assert.equal(bad.status,400);});
  await step('missing authenticated scope is rejected before any storage access',async()=>{const r=await fetch(base+'/api/plugins/long-memory-bridge/library/list',{method:'POST',headers:{'content-type':'application/json'},body:'{}'});assert.equal(r.status,400);});
+ await step('narrow host panels keep labels and control bounds inside the library',async()=>{
+  await page.addStyleTag({url:base+'/extension/style.css'});
+  await page.addStyleTag({content:'body{margin:0;font:15px sans-serif}#app{width:352px}label{white-space:nowrap}'});
+  for(const width of [352,280,220]){
+   await page.locator('#app').evaluate((el,width)=>el.style.width=width+'px',width);
+   const overflow=await page.locator('#long_memory_library').evaluate(panel=>{
+    const bounds=panel.getBoundingClientRect(),problems=[];
+    for(const el of panel.querySelectorAll('label,button,input,select')){
+     const name=el.dataset.k||el.textContent.trim(),rect=el.getBoundingClientRect();
+     if(rect.left<bounds.left-1||rect.right>bounds.right+1)problems.push(name+': control outside panel');
+     if(el.matches('label')&&el.getClientRects().length!==1)problems.push(name+': label split across action rows');
+     if(el.matches('label'))for(const node of el.childNodes){if(node.nodeType!==Node.TEXT_NODE)continue;const range=document.createRange();range.selectNodeContents(node);for(const text of range.getClientRects())if(text.right>bounds.right+1)problems.push(name+': text outside panel');}
+    }
+    return problems;
+   });
+   assert.deepEqual(overflow,[],`library control bounds at ${width}px`);
+  }
+ });
  await page.locator('[data-k=query]').fill('lighthouse');await page.locator('[data-k=search]').click();await page.locator('[data-k=results] article').waitFor();await page.screenshot({path:process.env.LONG_MEMORY_SCREENSHOT||join(dir,'synthetic.png'),fullPage:true});
  console.log(`# ${checks} synthetic Chromium checks passed; actual host is a separate test.`);
 }finally{await browser.close();await new Promise(r=>server.close(r));await controller.stop();await rm(dir,{recursive:true,force:true});}
